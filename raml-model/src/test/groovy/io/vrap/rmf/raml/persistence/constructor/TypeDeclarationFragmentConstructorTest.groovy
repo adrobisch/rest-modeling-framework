@@ -192,6 +192,23 @@ class TypeDeclarationFragmentConstructorTest extends Specification {
         itemsType.minLength == 12
     }
 
+    def "pattern property type"() {
+        when:
+        AnyType type = constructType(
+                '''\
+        displayName: WithProperties
+        properties:
+            /test/:
+                type: string
+        ''')
+        then:
+        type instanceof ObjectType
+        ObjectType objectType = type
+        objectType.properties.size() == 1
+        objectType.properties[0].name == '/test/'
+        objectType.properties[0].type instanceof StringType
+    }
+
     AnyType constructType(String input) {
         RAMLParser parser = parser(input)
         def constructor = new TypeDeclarationFragmentConstructor(TYPE_CONTAINER__TYPES)

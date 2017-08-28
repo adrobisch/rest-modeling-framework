@@ -48,6 +48,7 @@ public class RAMLCustomLexer implements TokenSource {
     private final int scalar = RAMLParser.SCALAR;
     private final int annotationTypeRef = RAMLParser.ANNOTATION_TYPE_REF;
     private final int relativeUri = RAMLParser.RELATIVE_URI;
+    private final int regexPattern = RAMLParser.REGEX_PATTERN;
 
     private final Stack<URI> uri = new Stack<>();
     private final URIConverter uriConverter;
@@ -141,7 +142,10 @@ public class RAMLCustomLexer implements TokenSource {
                 matcher.matches() ?
                         annotationTypeRef :
                         scalarValue.startsWith("/") && !scalarValue.endsWith("/") ?
-                                relativeUri : scalar;
+                                relativeUri :
+                                scalarValue.startsWith("/") && scalarValue.endsWith("/") ?
+                                        regexPattern :
+                                        scalar;
         final String text = matcher.matches() ?
                 matcher.group(1) :
                 scalarValue;

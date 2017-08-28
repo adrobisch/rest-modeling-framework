@@ -8,7 +8,7 @@ package io.vrap.rmf.raml.persistence.antlr;
 
 tokens {
     MAP_START, MAP_END, LIST_START, LIST_END, SCALAR,
-    ANNOTATION_TYPE_REF, RELATIVE_URI, MEDIA_TYPE
+    ANNOTATION_TYPE_REF, RELATIVE_URI, MEDIA_TYPE, REGEX_PATTERN
 }
 
 api:
@@ -508,7 +508,12 @@ id:
     |   'responses'
     |   'securedBy' | 'securitySchemes' | 'settings'
     |   'traits'
+    |   regexPattern
     |   SCALAR
+    ;
+
+regexPattern:
+    REGEX_PATTERN
     ;
 
 requiredFacet:
