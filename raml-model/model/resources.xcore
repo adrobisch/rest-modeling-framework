@@ -5,6 +5,11 @@ package io.vrap.rmf.raml.model.resources
 
 import java.util.Map
 
+import org.eclipse.emf.ecore.EDiagnosticChain
+import org.eclipse.emf.ecore.EMap
+import org.eclipse.emf.common.util.Diagnostic
+import org.eclipse.emf.common.util.BasicDiagnostic
+
 import io.vrap.rmf.raml.model.facets.ProtocolsFacet
 
 import io.vrap.rmf.raml.model.elements.DocumentableElement
@@ -17,7 +22,7 @@ import io.vrap.rmf.raml.model.types.TypedElement
 import io.vrap.rmf.raml.model.security.SecuredByFacet
 import io.vrap.rmf.raml.model.elements.IdentifiableElement
 
-import io.vrap.rmf.raml.model.responses.BodyType
+import io.vrap.rmf.raml.model.responses.BodyContainer
 import io.vrap.rmf.raml.model.responses.ResponsesFacet
 import io.vrap.rmf.raml.model.facets.Instance
 
@@ -64,7 +69,7 @@ class UriTemplateExpression extends UriTemplatePart {
 	String[] variables
 	
 	op String toString() {
-		val opStr = if (operator == null) "" else operator
+		val opStr = if (operator === null) "" else operator
 		"{" + opStr  + variables.join(",") + "}"
 	} 	
 	
@@ -90,7 +95,7 @@ interface ResourceContainer {
 /*
  * The commonalities between {@link Resource} and {@link ResourceType}
  */
-interface ResourceBase extends DocumentableElement, AnnotationsFacet, ResourceContainer, SecuredByFacet {
+interface ResourceBase extends DocumentableElement, AnnotationsFacet, SecuredByFacet, ApplyTraitsFacet {
 	/*
 	 * The uri parameters of this resource.
 	 */
@@ -123,14 +128,22 @@ interface ResourceBase extends DocumentableElement, AnnotationsFacet, ResourceCo
 
 class ResourceTypeApplication {
 	refers ResourceType ^type
-	contains Argument[] arguments 
+	contains Parameter[] parameters 
 }
 
 class Resource extends ResourceBase, ResourceContainer, ApplyTraitsFacet {
 	/*
-	 * The reltaive uri of this resource.
+	 * The relative uri of this resource.
 	 */
 	contains UriTemplate relativeUri
+	
+	@Ecore(invariant = "true")
+	op boolean methodsMustBeRequired(EDiagnosticChain diagnostics,EMap<Object,Object> context) {
+		val optionalMethods = methods.filter[!it.required].toList
+		optionalMethods.forEach[diagnostics.add(new BasicDiagnostic(Diagnostic.ERROR, null, -1, 
+			"Optional method not allowed in resource declaration " + it, null))]
+		optionalMethods.isEmpty
+	}
 }
 
 class ResourceType extends ResourceBase, IdentifiableElement {
@@ -154,29 +167,43 @@ interface ApplyTraitsFacet {
 	contains TraitApplication[] is	
 }
 
-class Method extends DocumentableElement, AnnotationsFacet, ProtocolsFacet, SecuredByFacet, 
-					 HeadersFacet, QueryParametersFacet, ResponsesFacet, ApplyTraitsFacet {
+/*
+ * The commonalities between {@link Method} and {@link Trait}
+ */
+interface MethodBase extends DocumentableElement, AnnotationsFacet, ProtocolsFacet, SecuredByFacet, 
+					 HeadersFacet, QueryParametersFacet, ResponsesFacet, ApplyTraitsFacet, BodyContainer {
+}
+ 
+class Method extends MethodBase {
 	/*
 	 * The HTTP method.
 	 */
 	HttpMethod method
 	
 	/*
-	 * The body types of this method.
+	 * Methods defined in a resource are always required,
+	 * but methods defined in a resource type can be optional. 
 	 */
-	contains BodyType[] bodies
+	boolean required = "true"
+				
+	@Ecore(invariant="true")	
+	op boolean hasValidProtocols(EDiagnosticChain diagnostics,EMap<Object,Object> context) {
+		val invalidValues = protocols.map[it.toLowerCase].filter[it != 'http' && it != 'https']
+		invalidValues.forEach[diagnostics.add(new BasicDiagnostic(Diagnostic.ERROR, null, -1, "Invalid protocol " + it, null))]
+		invalidValues.empty
+	}
 }
 
-class Trait extends IdentifiableElement, Method {
+class Trait extends IdentifiableElement, MethodBase {
 	String usage
 }
 
-class Argument {
+class Parameter {
 	String name
 	contains Instance value
 }
 
 class TraitApplication {
 	refers Trait trait
-	contains Argument[] arguments 
+	contains Parameter[] parameters 
 }

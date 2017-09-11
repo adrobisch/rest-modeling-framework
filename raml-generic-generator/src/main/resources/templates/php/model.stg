@@ -1,83 +1,5 @@
-/*
- * interface template functions
- */
+import "generic.stg"
 
-interface(vendorName, type, package, builtInParent, propertyTypes, propertySetters, typeProperties, typePackage, uses) ::= <<
-\<?php
-<generatorInfo()>
-
-namespace <vendorName>\\<package; format="capitalize"><if(typePackage)>\\<typePackage.value.value><endif>;
-
-<if(builtInParent)>
-use <vendorName>\\<package; format="capitalize">\\JsonObject;
-<endif>
-<uses: {c |<useImport(c)>}>
-
-interface <type.name> extends <if(!builtInParent)><type.type.name><else>JsonObject<endif> {
-    <typeProperties: {p |<propertyConstant(p)>}>
-    <type.properties, propertyTypes: {p, pt|<propertyInterfaceGet(p, pt)>}>
-    <propertySetters: {p |<p>}>
-}
-
->>
-
-useImport(class) ::=<<
-use <class>;
-
->>
-
-propertyConstant(property) ::=<<
-const FIELD_<property.name; format="upperUnderscore"> = '<property.name>';
-
->>
-
-propertyInterfaceGet(property, propertyType) ::= <<
-
-/**
- * @return <propertyType>
- */
-public function get<property.name; format="capitalize">();
->>
-
-propertyInterfaceSet(property, propertyType, paramType) ::= <<
-
-/**
- * @param <paramType> $<property.name>
- * @return $this
- */
-public function set<property.name; format="capitalize">(<if(propertyType)><propertyType> <endif>$<property.name>);
-
->>
-
-collectionInterface(vendorName, type, package, builtInParent, typePackage, uses) ::= <<
-\<?php
-<generatorInfo()>
-
-namespace <vendorName>\\<package; format="capitalize"><if(typePackage)>\\<typePackage.value.value><endif>;
-
-use <vendorName>\\<package; format="capitalize">\\Collection;
-
-interface <type.name>Collection extends Collection {
-    /**
-     * @param $index
-     * @return <type.name>
-     */
-    public function at($index);
-
-    /**
-     * @return <type.name>
-     */
-    public function current();
-
-    /**
-     * @param $data
-     * @param $index
-     * @return <type.name>
-     */
-    public function map($data, $index);
-}
-
->>
 /*
  * implementation template functions
  */
@@ -88,9 +10,9 @@ model(vendorName, type, package, builtInParent, propertyTypes, propertyGetters, 
 namespace <vendorName>\\<package; format="capitalize"><if(typePackage)>\\<typePackage.value.value><endif>;
 
 <if(builtInParent)>
-use <vendorName>\\<package; format="capitalize">\\JsonObjectModel;
+use <vendorName>\\Base\\JsonObjectModel;
 <endif>
-use <vendorName>\\<package; format="capitalize">\\ResourceClassMap;
+use <vendorName>\\Base\\ResultMapper;
 <uses: {c |<useImport(c)>}>
 
 class <type.name>Model extends <if(!builtInParent)><type.type.name>Model<else>JsonObjectModel<endif> implements <type.name> {
@@ -182,12 +104,12 @@ public function get<property.name; format="capitalize">()
         $value = $this->raw(<parent.name>::FIELD_<property.name; format="upperUnderscore">);
         <if(property.type.discriminator)>
         $resolvedClass = <property.type.name>DiscriminatorResolver::discriminatorType($value);
-        $mappedClass = ResourceClassMap::getMappedClass($resolvedClass);
+        $mappedClass = ResultMapper::getMappedClass($resolvedClass);
         <else>
-        $mappedClass = ResourceClassMap::getMappedClass(<property.type.name>::class);
+        $mappedClass = ResultMapper::getMappedClass(<property.type.name>::class);
         <endif>
         if (is_null($value)) {
-            return new $mappedClass([]);
+            return new $mappedClass();
         }
         $this-><property.name> = new $mappedClass($value);
     }
@@ -204,9 +126,9 @@ public function get<property.name; format="capitalize">()
 {
     if (is_null($this-><property.name>)) {
         $value = $this->raw(<parent.name>::FIELD_<property.name; format="upperUnderscore">);
-        $mappedClass = ResourceClassMap::getMappedClass(<propertyType>::class);
+        $mappedClass = ResultMapper::getMappedClass(<propertyType>::class);
         if (is_null($value)) {
-            return new $mappedClass([]);
+            return new $mappedClass();
         }
         $this-><property.name> = new $mappedClass($value);
     }
@@ -327,113 +249,5 @@ dateTimeSerializer(property, dateTimeFormat) ::= <<
 if (isset($data['<property.name>']) && $data['<property.name>'] instanceof \DateTimeImmutable) {
     $data['<property.name>'] = $data['<property.name>']->setTimeZone(new \DateTimeZone('UTC'))->format('<dateTimeFormat>');
 }
-
->>
-
-collectionModel(vendorName, type, package, builtInParent, typePackage, uses) ::= <<
-\<?php
-<generatorInfo()>
-
-namespace <vendorName>\\<package; format="capitalize"><if(typePackage)>\\<typePackage.value.value><endif>;
-
-use <vendorName>\\<package; format="capitalize">\\JsonCollection;
-use <vendorName>\\<package; format="capitalize">\\Collection;
-use <vendorName>\\<package; format="capitalize">\\ResourceClassMap;
-
-class <type.name>CollectionModel extends JsonCollection implements <type.name>Collection {
-
-    /**
-     * @param <type.name> $value
-     * @return <type.name>Collection
-     */
-    public function add($value) {
-        if (!$value instanceof <type.name>) {
-            throw new \InvalidArgumentException();
-        }
-        parent::add($value);
-
-        return $this;
-    }
-
-    /**
-     * @return <type.name>
-     */
-    public function map($data, $index)
-    {
-        if (!is_null($data) && !$data instanceof <type.name>) {
-            <if(type.discriminator)>
-            $resolvedClass = <type.name>DiscriminatorResolver::discriminatorType($data);
-            $mappedClass = ResourceClassMap::getMappedClass($resolvedClass);
-            <else>
-            $mappedClass = ResourceClassMap::getMappedClass(<type.name>::class);
-            <endif>
-            $data = new $mappedClass($data);
-            $this->rawSet($data, $index);
-        }
-        return $data;
-    }
-}
-
->>
-
-/*
- * common template functions
- */
-generatorInfo() ::= <<
-/**
- * This file has been auto generated
- * Do not change it
- */
->>
-
-discriminatorResolver(vendorName, package, type, subTypes, typePackage, subTypePackages) ::= <<
-\<?php
-<generatorInfo()>
-
-namespace <vendorName>\\<package; format="capitalize"><if(typePackage)>\\<typePackage.value.value><endif>;
-
-<if(typePackage)>
-use <vendorName>\\<package; format="capitalize">;
-<endif>
-
-class <type.name; format="capitalize">DiscriminatorResolver
-{
-    const DISCRIMINATOR = '<type.discriminator>';
-    const TYPES = [
-        <subTypes, subTypePackages: {t,tp|<discriminatorMapping(package, t,tp)>}>
-    ];
-
-    public static function discriminatorType(array $data)
-    {
-        $types = static::TYPES;
-        $discriminatorValue = isset($data[self::DISCRIMINATOR]) ? $data[self::DISCRIMINATOR] : '';
-        return isset($types[$discriminatorValue]) ? $types[$discriminatorValue] : <type.name>::class;
-    }
-}
-
->>
-
-discriminatorMapping(package, type, typePackage) ::= <<
-'<type.discriminatorValue>' => <package; format="capitalize">\\<typePackage><type.name; format="capitalize">::class,
-
->>
-
-modelMap(vendorName, package, types) ::= <<
-\<?php
-<generatorInfo()>
-
-namespace <vendorName>\\<package; format="capitalize">;
-
-class ModelClassMap extends ClassMap
-{
-    protected static $types = [
-        <types: {t|<typeMapping(t)>}>
-    ];
-}
-
->>
-
-typeMapping(typeName) ::= <<
-<typeName; format="capitalize">::class => <typeName; format="capitalize">Model::class,
 
 >>

@@ -1,0 +1,44 @@
+#%RAML 1.0
+title: An example API with an applied resource type
+
+types:
+  User:
+    properties:
+      email:
+  UserDraft:
+    properties:
+      email:
+
+traits:
+    hasCorrelationId:
+        headers:
+            X-Correlation-Id:
+    queryable:
+        queryParameters:
+            id:
+
+resourceTypes:
+  collection:
+    is:
+        - hasCorrelationId
+    get:
+      is:
+        - queryable
+      responses:
+        200:
+          body:
+            application/json:
+              type: <<resourceName>>
+    post?:
+      body:
+        application/json:
+          type: <<resourceName>>Draft
+      responses:
+          201:
+            body:
+              application/json:
+                type: <<resourceName>>
+
+/user:
+  type: { collection: { resourceName: User} }
+  post:

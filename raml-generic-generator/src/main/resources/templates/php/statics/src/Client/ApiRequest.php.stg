@@ -1,10 +1,13 @@
-main(vendorName) ::= <<
+import "../../../generic.stg"
+
+main(vendorName) ::=<<
 \<?php
+<generatorInfo()>
 
 namespace <vendorName>\Client;
 
-use <vendorName>\Types\JsonObject;
-use <vendorName>\Types\ResultMapper;
+use <vendorName>\Base\JsonObject;
+use <vendorName>\Base\ResultMapper;
 use GuzzleHttp\Psr7\Request;
 use Psr\Http\Message\ResponseInterface;
 use GuzzleHttp\Psr7;
@@ -26,7 +29,7 @@ class ApiRequest extends Request
         parent::__construct($method, $uri, $headers, $body, $version);
     }
 
-    private function ensureHeader(array $headers, $header, $defaultValue)
+    protected function ensureHeader(array $headers, $header, $defaultValue)
     {
         $normalizedHeader = strtolower($header);
         foreach ($headers as $header => $value) {

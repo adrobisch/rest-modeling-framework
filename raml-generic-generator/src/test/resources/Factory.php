@@ -1,4 +1,8 @@
 <?php
+/**
+ * This file has been auto generated
+ * Do not change it
+ */
 
 namespace Test\Client;
 
@@ -23,64 +27,70 @@ use Psr\Log\LogLevel;
 
 class Factory
 {
-    const API_URI = 'apiUri';
-    const AUTH_URI = 'https://auth.example.com/oauth/token';
-
-    private static $guzzle6;
+    /**
+     * @var bool
+     */
+    private static $isGuzzle6;
 
     /**
-     * @param $options
+     * @param Config|array $config
      * @param LoggerInterface $logger
      * @param CacheItemPoolInterface $cache
      * @param TokenProvider $provider
      * @return HttpClient
      */
     public static function create(
-        $options,
+        $config = [],
         LoggerInterface $logger = null,
         CacheItemPoolInterface $cache = null,
-        TokenProvider$provider = null
+        TokenProvider $provider = null
     ) {
         $factory = new static();
 
-        return $factory->createClient($options, $logger, $cache, $provider);
+        return $factory->createClient($config, $logger, $cache, $provider);
     }
 
     /**
-     * @param $options
+     * @param Config|array $config
+     * @return Config
+     */
+    private function createConfig($config)
+    {
+        if ($config instanceof Config) {
+            return $config;
+        }
+        if (is_array($config)) {
+            return new Config($config);
+        }
+        throw new \InvalidArgumentException();
+    }
+
+    /**
+     * @param Config|array $config
      * @param LoggerInterface $logger
      * @param CacheItemPoolInterface $cache
      * @param TokenProvider $provider
      * @return HttpClient
      */
     public function createClient(
-        array $options = [],
+        $config,
         LoggerInterface $logger = null,
         CacheItemPoolInterface $cache = null,
         TokenProvider $provider = null
     ) {
+        $config = $this->createConfig($config);
+
         if (is_null($cache)) {
-            if (isset($options['cacheDir'])) {
-                $cacheDir = $options['cacheDir'];
-                unset($options['cacheDir']);
-            } else {
-                $cacheDir = getcwd();
-            }
+            $cacheDir = $config->getCacheDir();
 
             $filesystemAdapter = new Local($cacheDir);
             $filesystem        = new Filesystem($filesystemAdapter);
             $cache = new FilesystemCachePool($filesystem);
         }
-        $credentials = [];
-        if (isset($options['credentials'])) {
-            $credentials = $options['credentials'];
-            unset($options['credentials']);
-        }
-        if (!isset($options['base_uri'])) {
-            $options['base_uri'] = self::API_URI;
-        }
-        $oauthHandler = $this->getHandler($credentials, self::AUTH_URI, $cache, $provider);
+        $credentials = $config->getCredentials()->toArray();
+        $oauthHandler = $this->getHandler($credentials, $config->getAuthUrl(), $cache, $provider);
 
+        $options = $config->getOptions();
         if (self::isGuzzle6()) {
             return $this->createGuzzle6Client($options, $logger, $oauthHandler);
         } else {
@@ -99,11 +109,11 @@ class Factory
         LoggerInterface $logger = null,
         OAuth2Handler $oauthHandler
     ) {
-        if (!isset($options['handler'])) {
+        if (isset($options['handler']) && $options['handler'] instanceof HandlerStack) {
+            $handler = $options['handler'];
+        } else {
             $handler = HandlerStack::create();
             $options['handler'] = $handler;
-        } else {
-            $handler = $options['handler'];
         }
 
         $options = array_merge(
@@ -215,7 +225,7 @@ class Factory
     private function getHandler($credentials, $accessTokenUrl, $cache = null, $provider = null)
     {
         if (is_null($provider)) {
-            $provider = new TokenProvider(
+            $provider = new CredentialTokenProvider(
                 new HttpClient(),
                 $accessTokenUrl,
                 $credentials
@@ -225,13 +235,13 @@ class Factory
     }
 
     private static function isGuzzle6() {
-        if (is_null(self::$guzzle6)) {
+        if (is_null(self::$isGuzzle6)) {
             if (version_compare(HttpClient::VERSION, '6.0.0', '>=')) {
-                self::$guzzle6 = true;
+                self::$isGuzzle6 = true;
             } else {
-                self::$guzzle6 = false;
+                self::$isGuzzle6 = false;
             }
         }
-        return self::$guzzle6;
+        return self::$isGuzzle6;
     }
 }

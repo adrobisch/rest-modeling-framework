@@ -1,0 +1,29 @@
+import "generic.stg"
+
+modelMap(vendorName, package, types) ::= <<
+\<?php
+<generatorInfo()>
+
+namespace <vendorName>\\<package; format="capitalize">;
+
+use <vendorName>\\Base\\ClassMapModel;
+use <vendorName>\\Base\\Collection;
+use <vendorName>\\Base\\JsonCollection;
+use <vendorName>\\Base\\JsonObject;
+use <vendorName>\\Base\\JsonObjectModel;
+
+class ModelClassMap extends ClassMapModel
+{
+    protected static $types = [
+        JsonObject::class => JsonObjectModel::class,
+        Collection::class => JsonCollection::class,
+        <types: {t|<typeMapping(t)>}>
+    ];
+}
+
+>>
+
+typeMapping(typeName) ::= <<
+<typeName; format="capitalize">::class => <typeName; format="capitalize">Model::class,
+
+>>

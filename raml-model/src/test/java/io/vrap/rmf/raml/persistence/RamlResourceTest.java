@@ -13,6 +13,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +21,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 public class RamlResourceTest implements ResourceFixtures {
+    private final static URL tckURL = RamlResourceTest.class.getResource("/raml-tck-wip-2.0.0/tests");
+
+    @Test
+    public void typesWithEmptyInclude() {
+        final URI uri = URI.createURI(tckURL.toString() + "/spec-examples/raml-1.0/resourcetypes-traits-parameterfunctions.raml");
+        final Resource resource = fromUri(uri);
+        assertThat(resource.getErrors()).isEmpty();
+    }
 
     @Test
     public void generatorLibrary() throws IOException {
@@ -138,11 +147,8 @@ public class RamlResourceTest implements ResourceFixtures {
     @Ignore
     @Test
     public void api() {
-        final File apiFile = new File("/Users/mkoester/Development/commercetools-api-reference/api.raml");
-        assumeTrue(apiFile.exists());
-
-        final URI fileURI = URI.createURI(apiFile.toURI().toString());
-        final Resource resource = fromUri(fileURI);
+        final URI apiUri = uriFromClasspath("/commercetools-api-reference-master/api.raml");
+        final Resource resource = fromUri(apiUri);
         assertThat(resource).isNotNull();
         assertThat(resource.getErrors()).isEmpty();
 

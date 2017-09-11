@@ -11,20 +11,22 @@ import io.vrap.rmf.raml.model.types.*;
 import io.vrap.rmf.raml.persistence.antlr.RAMLParser;
 import org.antlr.v4.runtime.Token;
 import org.eclipse.emf.common.util.ECollections;
+import org.eclipse.emf.ecore.EAttribute;
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static io.vrap.rmf.raml.model.elements.ElementsPackage.Literals.IDENTIFIABLE_ELEMENT__NAME;
-import static io.vrap.rmf.raml.model.modules.ModulesPackage.Literals.TRAIT_CONTAINER__TRAITS;
 import static io.vrap.rmf.raml.model.modules.ModulesPackage.Literals.TYPE_CONTAINER__RESOURCE_TYPES;
+import static io.vrap.rmf.raml.model.modules.ModulesPackage.Literals.TYPE_CONTAINER__TRAITS;
 import static io.vrap.rmf.raml.model.resources.ResourcesPackage.Literals.*;
+import static io.vrap.rmf.raml.model.responses.ResponsesPackage.Literals.BODY_CONTAINER__BODIES;
 import static io.vrap.rmf.raml.model.responses.ResponsesPackage.Literals.RESPONSES_FACET__RESPONSES;
-import static io.vrap.rmf.raml.model.responses.ResponsesPackage.Literals.RESPONSE__BODIES;
 import static io.vrap.rmf.raml.model.security.SecurityPackage.Literals.*;
 import static io.vrap.rmf.raml.model.types.TypesPackage.Literals.*;
 
@@ -40,7 +42,7 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
 
     @Override
     public Object visitTraitsFacet(RAMLParser.TraitsFacetContext traitsFacet) {
-        return withinScope(scope.with(TRAIT_CONTAINER__TRAITS), traitsScope ->
+        return withinScope(scope.with(TYPE_CONTAINER__TRAITS), traitsScope ->
                 traitsFacet.traitFacet().stream()
                         .map(this::visitTraitFacet)
                         .collect(Collectors.toList())
@@ -57,11 +59,7 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
             traitFacet.headersFacet().forEach(this::visitHeadersFacet);
             traitFacet.queryParametersFacet().forEach(this::visitQueryParametersFacet);
 
-            withinScope(traitScope.with(METHOD__BODIES), bodiesScope -> {
-                traitFacet.bodyFacet().forEach(this::visitBodyFacet);
-                return null;
-            });
-
+            traitFacet.bodyFacet().forEach(this::visitBodyFacet);
             traitFacet.responsesFacet().forEach(this::visitResponsesFacet);
 
             traitFacet.isFacet().forEach(this::visitIsFacet);
@@ -86,7 +84,7 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
         final String traitName = ctx.id().getText();
         final Trait trait = (Trait) scope.with(TRAIT_APPLICATION__TRAIT).getEObjectByName(traitName);
         traitApplication.setTrait(trait);
-        return withinScope(scope.with(traitApplication, TRAIT_APPLICATION__ARGUMENTS),
+        return withinScope(scope.with(traitApplication, TRAIT_APPLICATION__PARAMETERS),
                 argumentsScope -> ctx.argument().stream()
                         .map(this::visitArgument)
                         .collect(Collectors.toList()));
@@ -94,14 +92,14 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
 
     @Override
     public Object visitArgument(RAMLParser.ArgumentContext ctx) {
-        final Argument traitArgument = ResourcesFactory.eINSTANCE.createArgument();
-        scope.setValue(traitArgument, ctx.getStart());
+        final Parameter traitParameter = ResourcesFactory.eINSTANCE.createParameter();
+        scope.setValue(traitParameter, ctx.getStart());
 
-        traitArgument.setName(ctx.name.getText());
-        withinScope(scope.with(traitArgument, ARGUMENT__VALUE),
+        traitParameter.setName(ctx.name.getText());
+        withinScope(scope.with(traitParameter, PARAMETER__VALUE),
                 valueScope -> this.visitInstance(ctx.instance()));
 
-        return traitArgument;
+        return traitParameter;
     }
 
     @Override
@@ -184,14 +182,16 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
             responseFacet.attributeFacet().forEach(this::visitAttributeFacet);
             responseFacet.headersFacet().forEach(this::visitHeadersFacet);
 
-            withinScope(responseScope.with(RESPONSE__BODIES), bodiesScope -> {
-                responseFacet.bodyFacet().forEach(this::visitBodyFacet);
-
-                return null;
-            });
+            responseFacet.bodyFacet().forEach(this::visitBodyFacet);
 
             return response;
         });
+    }
+
+    @Override
+    public Object visitBodyFacet(final RAMLParser.BodyFacetContext ctx) {
+        return withinScope(scope.with(BODY_CONTAINER__BODIES),
+                bodiesScope -> super.visitBodyFacet(ctx));
     }
 
     @Override
@@ -203,15 +203,19 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
             bodyType.getContentTypes().add(contentType);
         }
         return withinScope(scope.with(bodyType), bodyTypeScope -> {
-            EObject type = null;
-            if (bodyContentType.typeFacet().size() == 1) {
-                type = (EObject) visitTypeFacet(bodyContentType.typeFacet(0));
-            } else if (bodyContentType.propertiesFacet().size() == 1) {
-                type = scope.getEObjectByName(BuiltinType.OBJECT.getName());
-            }
-            if (type == null) {
-                type = scope.getEObjectByName(BuiltinType.ANY.getName());
-            }
+            AnyType type = withinScope(scope.with(TYPED_ELEMENT__TYPE),
+                    typedElementTypeScope -> {
+                        AnyType anyType = null;
+                        if (bodyContentType.typeFacet().size() == 1) {
+                            anyType = (AnyType) visitTypeFacet(bodyContentType.typeFacet(0));
+                        } else if (bodyContentType.propertiesFacet().size() == 1) {
+                            anyType = (AnyType) scope.getEObjectByName(BuiltinType.OBJECT.getName());
+                        }
+                        if (anyType == null) {
+                            anyType = (AnyType) scope.getEObjectByName(BuiltinType.ANY.getName());
+                        }
+                        return anyType;
+                    });
             // inline type declaration
             final boolean isInlineTypeDeclaration =
                     bodyContentType.attributeFacet().size() > 0 || bodyContentType.propertiesFacet().size() > 0 ||
@@ -219,8 +223,7 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
                             bodyContentType.defaultFacet().size() > 0 || bodyContentType.enumFacet().size() > 0 ||
                             bodyContentType.itemsFacet().size() > 0;
             if (isInlineTypeDeclaration) {
-                type = EcoreUtil.create(type.eClass());
-                bodyTypeScope.addValue(INLINE_TYPE_CONTAINER__INLINE_TYPES, type);
+                type = inlineTypeDeclaration(type, bodyTypeScope, bodyContentType.getStart());
                 withinScope(scope.with(type),
                         inlineTypeDeclarationScope -> {
                             bodyContentType.attributeFacet().forEach(this::visitAttributeFacet);
@@ -249,14 +252,19 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
         scope.setValue(bodyType, bodyTypeFacet.getStart());
 
         return withinScope(scope.with(bodyType), bodyTypeScope -> {
-            EObject type;
-            if (bodyTypeFacet.typeFacet().size() == 1) {
-                type = (EObject) visitTypeFacet(bodyTypeFacet.typeFacet(0));
-            } else if (bodyTypeFacet.propertiesFacet().size() == 1) {
-                type = scope.getEObjectByName(BuiltinType.OBJECT.getName());
-            } else {
-                type = scope.getEObjectByName(BuiltinType.ANY.getName());
-            }
+            AnyType type = withinScope(scope.with(TYPED_ELEMENT__TYPE),
+                    typedElementTypeScope -> {
+                        AnyType anyType = null;
+                        if (bodyTypeFacet.typeFacet().size() == 1) {
+                            anyType = (AnyType) visitTypeFacet(bodyTypeFacet.typeFacet(0));
+                        } else if (bodyTypeFacet.propertiesFacet().size() == 1) {
+                            anyType = (AnyType) scope.getEObjectByName(BuiltinType.OBJECT.getName());
+                        }
+                        if (anyType == null) {
+                            anyType = (AnyType) scope.getEObjectByName(BuiltinType.ANY.getName());
+                        }
+                        return anyType;
+                    });
             // inline type declaration
             final boolean isInlineTypeDeclaration =
                     bodyTypeFacet.attributeFacet().size() > 0 || bodyTypeFacet.propertiesFacet().size() > 0 ||
@@ -264,10 +272,8 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
                             bodyTypeFacet.defaultFacet().size() > 0 || bodyTypeFacet.enumFacet().size() > 0 ||
                             bodyTypeFacet.itemsFacet().size() > 0;
             if (isInlineTypeDeclaration) {
-                EObject inlinedType = type;
-                type = EcoreUtil.create(type.eClass());
-                bodyTypeScope.with(type, ANY_TYPE__TYPE).setValue(inlinedType, bodyTypeFacet.getStart());
-                bodyTypeScope.addValue(INLINE_TYPE_CONTAINER__INLINE_TYPES, type);
+                final Token token = bodyTypeFacet.getStart();
+                type = inlineTypeDeclaration(type, bodyTypeScope, token);
                 withinScope(scope.with(type),
                         inlineTypeDeclarationScope -> {
                             bodyTypeFacet.attributeFacet().forEach(this::visitAttributeFacet);
@@ -287,6 +293,26 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
 
             return bodyType;
         });
+    }
+
+    private AnyType inlineTypeDeclaration(final AnyType type, final Scope scope, final Token token) {
+        if (type.isInlineType()) {
+            return type;
+        } else {
+            final AnyType inlinedType = (AnyType) createAndCopy(type);
+            scope.with(inlinedType, ANY_TYPE__TYPE).setValue(type, token);
+            scope.addValue(INLINE_TYPE_CONTAINER__INLINE_TYPES, inlinedType);
+            return inlinedType;
+        }
+    }
+
+    protected EObject createAndCopy(final EObject eObject) {
+        final EClass eClass = eObject.eClass();
+        final EObject newEObject = EcoreUtil.create(eClass);
+        final Consumer<EAttribute> copyAttribute = attribute -> newEObject.eSet(attribute, eObject.eGet(attribute));
+        eClass.getEAllAttributes().forEach(copyAttribute);
+
+        return newEObject;
     }
 
     @Override
@@ -387,7 +413,8 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
     public Object visitTypeFacet(final RAMLParser.TypeFacetContext ctx) {
         final String typeExpression = ctx.SCALAR().getText();
 
-        return typeExpressionConstructor.parse(typeExpression, scope);
+        final EObject parsedTypeExpression = typeExpressionConstructor.parse(typeExpression, scope);
+        return parsedTypeExpression;
     }
 
     @Override
@@ -451,7 +478,8 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
      */
     @Override
     public Object visitTypeDeclarationMap(final RAMLParser.TypeDeclarationMapContext typeDeclarationMap) {
-        final EObject declaredType = scope.getEObjectByName(typeDeclarationMap.name.getText());
+        final String text = typeDeclarationMap.name.getText();
+        final EObject declaredType = scope.getEObjectByName(text);
 
         return withinScope(scope.with(declaredType), typeScope -> {
             typeDeclarationMap.annotationFacet().forEach(this::visitAnnotationFacet);
@@ -595,7 +623,7 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
         scope.setValue(resourceTypeApplication, ctx.getStart());
         final ResourceType resourceType = (ResourceType) scope.with(RESOURCE_TYPE_APPLICATION__TYPE).getEObjectByName(ctx.type.getText());
         resourceTypeApplication.setType(resourceType);
-        return withinScope(scope.with(resourceTypeApplication, RESOURCE_TYPE_APPLICATION__ARGUMENTS),
+        return withinScope(scope.with(resourceTypeApplication, RESOURCE_TYPE_APPLICATION__PARAMETERS),
                 argumentsScope -> ctx.argument().stream()
                         .map(this::visitArgument)
                         .collect(Collectors.toList()));
@@ -609,7 +637,7 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
             resourceTypeDeclarationFacet.attributeFacet().forEach(this::visitAttributeFacet);
             resourceTypeDeclarationFacet.annotationFacet().forEach(this::visitAnnotationFacet);
             resourceTypeDeclarationFacet.securedByFacet().forEach(this::visitSecuredByFacet);
-
+            resourceTypeDeclarationFacet.isFacet().forEach(this::visitIsFacet);
             resourceTypeDeclarationFacet.methodFacet().forEach(this::visitMethodFacet);
             resourceTypeDeclarationFacet.uriParametersFacet().forEach(this::visitUriParametersFacet);
 
@@ -624,9 +652,11 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
         return withinScope(scope.with(RESOURCE_BASE__METHODS), methodsScope -> {
             final Method method = ResourcesFactory.eINSTANCE.createMethod();
             String httpMethodText = methodFacet.httpMethod().getText();
-            httpMethodText = httpMethodText.endsWith("?") ?
-                    httpMethodText.substring(0, httpMethodText.length() - 1) :
-                    httpMethodText;
+            final boolean required = !httpMethodText.endsWith("?");
+            method.setRequired(required);
+            httpMethodText = required ?
+                    httpMethodText :
+                    httpMethodText.substring(0, httpMethodText.length() - 1) ;
             final HttpMethod httpMethod = (HttpMethod) ResourcesFactory.eINSTANCE.createFromString(HTTP_METHOD, httpMethodText);
             method.setMethod(httpMethod);
             methodsScope.setValue(method, methodFacet.getStart());
@@ -638,10 +668,7 @@ public abstract class AbstractConstructor extends AbstractScopedVisitor<Object> 
                 methodFacet.headersFacet().forEach(this::visitHeadersFacet);
                 methodFacet.queryParametersFacet().forEach(this::visitQueryParametersFacet);
 
-                withinScope(methodScope.with(METHOD__BODIES), bodiesScope -> {
-                    methodFacet.bodyFacet().forEach(this::visitBodyFacet);
-                    return null;
-                });
+                methodFacet.bodyFacet().forEach(this::visitBodyFacet);
 
                 methodFacet.responsesFacet().forEach(this::visitResponsesFacet);
                 methodFacet.isFacet().forEach(this::visitIsFacet);

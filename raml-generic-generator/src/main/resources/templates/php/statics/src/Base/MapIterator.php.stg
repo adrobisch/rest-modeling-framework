@@ -1,7 +1,10 @@
-main(vendorName) ::= <<
-\<?php
+import "../../../generic.stg"
 
-namespace <vendorName>\\Types;
+main(vendorName) ::=<<
+\<?php
+<generatorInfo()>
+
+namespace <vendorName>\\Base;
 
 class MapIterator extends \ArrayIterator
 {

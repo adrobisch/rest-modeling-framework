@@ -1,9 +1,13 @@
 <?php
+/**
+ * This file has been auto generated
+ * Do not change it
+ */
 
 namespace Test\Client;
 
-use Test\Types\JsonObject;
-use Test\Types\ResultMapper;
+use Test\Base\JsonObject;
+use Test\Base\ResultMapper;
 use GuzzleHttp\Psr7\Request;
 use Psr\Http\Message\ResponseInterface;
 use GuzzleHttp\Psr7;

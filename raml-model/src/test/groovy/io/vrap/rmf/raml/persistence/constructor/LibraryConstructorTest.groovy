@@ -2,11 +2,16 @@ package io.vrap.rmf.raml.persistence.constructor
 
 import io.vrap.rmf.raml.model.facets.StringInstance
 import io.vrap.rmf.raml.model.modules.Library
+import io.vrap.rmf.raml.model.resources.Trait
 import io.vrap.rmf.raml.model.security.OAuth20Settings
 import io.vrap.rmf.raml.model.types.AnnotationTarget
+import io.vrap.rmf.raml.model.types.AnyType
 import io.vrap.rmf.raml.model.types.ObjectType
+import io.vrap.rmf.raml.model.types.Property
 import io.vrap.rmf.raml.model.types.StringAnnotationType
 import io.vrap.rmf.raml.model.types.StringType
+import io.vrap.rmf.raml.model.types.TypeTemplate
+import io.vrap.rmf.raml.model.types.UnionType
 import io.vrap.rmf.raml.persistence.RamlResourceSet
 import io.vrap.rmf.raml.persistence.antlr.RAMLCustomLexer
 import io.vrap.rmf.raml.persistence.antlr.RAMLParser
@@ -23,10 +28,13 @@ import spock.lang.Specification
  * Unit tests for {@link ApiConstructor}
  */
 class LibraryConstructorTest extends Specification {
-    @Shared
-    ResourceSet resourceSet = new RamlResourceSet()
+    ResourceSet resourceSet
     @Shared
     URI uri = URI.createURI("test.raml");
+
+    def setup() {
+        resourceSet = new RamlResourceSet()
+    }
 
     def "library"() {
         when:
@@ -139,6 +147,7 @@ class LibraryConstructorTest extends Specification {
         inlineStringType.name == null
         inlineStringType.minLength == 10
     }
+
     def "security scheme"() {
         when:
         Library library = constructLibrary(
@@ -161,6 +170,87 @@ class LibraryConstructorTest extends Specification {
         oauth20Settings.accessTokenUri == 'https://api.example.com/1/oauth2/token'
         oauth20Settings.authorizationGrants == ['authorization_code', 'implicit']
         oauth20Settings.authorizationUri == 'https://www.example.com/1/oauth2/authorize'
+    }
+
+    def "resource types"() {
+        when:
+        Library library = constructLibrary(
+                '''\
+        resourceTypes:
+            update:
+                post?:
+                get:
+        ''')
+        then:
+        library.resourceTypes.size() == 1
+        library.resourceTypes[0].methods.size() == 2
+        library.resourceTypes[0].methods[0].required == false
+        library.resourceTypes[0].methods[1].required == true
+    }
+
+    def "resource type with applied trait"() {
+        when:
+        Library library = constructLibrary(
+                '''\
+        traits:
+            queryable:
+                queryParameters:
+                    id:
+        resourceTypes:
+            base:
+                is: 
+                    - queryable
+        ''')
+        then:
+        Trait queryable = library.getTrait('queryable')
+        queryable != null
+        library.resourceTypes.size() == 1
+        library.resourceTypes[0].is.size() == 1
+        library.resourceTypes[0].is[0].trait == queryable
+    }
+
+    def "resource type with inline type"() {
+        when:
+        Library library = constructLibrary(
+                '''\
+        resourceTypes:
+            baseDomain:
+                get:
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    example: <<resourceQueryExample>>
+                                    type: <<resourceQueryType>>
+
+        ''')
+        then:
+        library.resourceTypes.size() == 1
+        library.resourceTypes[0].methods.size() == 1
+        library.resourceTypes[0].methods[0].responses.size() == 1
+        library.resourceTypes[0].methods[0].responses[0].bodies.size() == 1
+        library.resourceTypes[0].methods[0].responses[0].bodies[0].type instanceof TypeTemplate
+        library.resourceTypes[0].methods[0].responses[0].bodies[0].inlineTypes.size() == 1
+        library.resourceTypes[0].methods[0].responses[0].bodies[0].type.name == '<<resourceQueryType>>'
+    }
+
+    def "multi-line union type"() {
+        when:
+        Library library = constructLibrary(
+                '''\
+        types:
+            Type:
+                properties:
+                    anyOrName:
+                        type: any |
+                            string
+        ''')
+        then:
+        AnyType type = library.getType('Type')
+        type instanceof ObjectType
+        ObjectType objectType = type
+        Property property = objectType.getProperty('anyOrName')
+        property.type instanceof UnionType
     }
 
     Library constructLibrary(String input) {

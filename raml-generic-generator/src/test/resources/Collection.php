@@ -1,6 +1,10 @@
 <?php
+/**
+ * This file has been auto generated
+ * Do not change it
+ */
 
-namespace Test\Types;
+namespace Test\Base;
 
 interface Collection extends \IteratorAggregate, \ArrayAccess
 {

@@ -5,6 +5,11 @@
 )
 package io.vrap.rmf.raml.model.modules
 
+import org.eclipse.emf.ecore.EDiagnosticChain
+import org.eclipse.emf.ecore.EMap
+import org.eclipse.emf.common.util.Diagnostic
+import org.eclipse.emf.common.util.BasicDiagnostic
+
 import io.vrap.rmf.raml.model.facets.ProtocolsFacet
 import io.vrap.rmf.raml.model.types.AnnotationsFacet
 import io.vrap.rmf.raml.model.types.AnyAnnotationType
@@ -20,7 +25,7 @@ import io.vrap.rmf.raml.model.security.SecuritySchemeContainer
 import io.vrap.rmf.raml.model.security.SecuredByFacet
 
 class Api extends AnnotationsFacet, TypeContainer, ResourceContainer, ProtocolsFacet, 
-		SecuritySchemeContainer, SecuredByFacet, TraitContainer {
+		SecuritySchemeContainer, SecuredByFacet {
 	/*
 	 * A short, plain-text label for the API. Its value is a string.
 	 */
@@ -57,6 +62,13 @@ class Api extends AnnotationsFacet, TypeContainer, ResourceContainer, ProtocolsF
 	 * Additional overall documentation for the API.
 	 */
 	contains Document[] documentation
+			
+	@Ecore(invariant="true")	
+	op boolean hasValidProtocols(EDiagnosticChain diagnostics,EMap<Object,Object> context) {
+		val invalidValues = protocols.map[it.toLowerCase].filter[it != 'http' && it != 'https']
+		invalidValues.forEach[diagnostics.add(new BasicDiagnostic(Diagnostic.ERROR, null, -1, "Invalid protocol " + it, null))]
+		invalidValues.empty
+	}
 }
 
 class Document {
@@ -72,22 +84,50 @@ class Document {
 	String content
 }
 
-interface TraitContainer {
-	/*
+interface TypeContainer {
+	contains LibraryUse[] uses
+    
+    contains AnyType[] types
+    
+    /*
+     * Returns the type with the given name or null.
+     */
+    op AnyType getType(String name) {
+    	types.findFirst[it.name == name]
+    }
+    
+    contains AnyAnnotationType[] annotationTypes
+    
+    /*
+     * Returns the annotation type with the given name or null. 
+     */
+    op AnyAnnotationType getAnnotationType(String name) {
+    	annotationTypes.findFirst[it.name == name]
+    }
+    
+    contains ResourceType[] resourceTypes
+    
+    /*
+     * Returns the resource type with the given name or null. 
+     */
+    op ResourceType getResourceType(String name) {
+    	resourceTypes.findFirst[it.name == name]	
+    }
+    
+    /*
 	 * Declarations of traits for use within this element.
 	 */
 	contains Trait[] traits	
+    
+    /*
+     * Returns the trait with the given name or null. 
+     */
+    op Trait getTrait(String name) {
+    	traits.findFirst[it.name == name]
+    }
 }
 
-interface TypeContainer {
-	contains LibraryUse[] uses
-
-    contains AnyType[] types
-    contains AnyAnnotationType[] annotationTypes
-    contains ResourceType[] resourceTypes
-}
-
-class Library extends AnnotationsFacet, TypeContainer, SecuritySchemeContainer, TraitContainer {
+class Library extends AnnotationsFacet, TypeContainer, SecuritySchemeContainer {
     String usage
 }
 

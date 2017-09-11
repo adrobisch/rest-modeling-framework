@@ -44,6 +44,10 @@ public abstract class AbstractTemplateGenerator {
                             return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, arg.toString());
                         case "lowercase":
                             return StringUtils.lowerCase(arg.toString());
+                        case "lowercamel":
+                            return CaseFormat.LOWER_HYPHEN.to(CaseFormat.LOWER_CAMEL, arg.toString().replace(".", "-"));
+                        case "uppercamel":
+                            return CaseFormat.LOWER_HYPHEN.to(CaseFormat.UPPER_CAMEL, arg.toString().replace(".", "-"));
                         default:
                             return arg.toString();
                     }
@@ -52,6 +56,9 @@ public abstract class AbstractTemplateGenerator {
     }
 
     protected List<AnyType> getParentTypes(AnyType anyType) {
+        if (anyType == null) {
+            return Lists.newArrayList();
+        }
         if (BuiltinType.of(anyType.getName()).isPresent()) {
             return Lists.newArrayList();
         }

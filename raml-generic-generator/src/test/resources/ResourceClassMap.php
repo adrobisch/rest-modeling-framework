@@ -1,6 +1,12 @@
 <?php
+/**
+ * This file has been auto generated
+ * Do not change it
+ */
 
-namespace Test\Types;
+namespace Test\Base;
+
+use Test\Types\ModelClassMap;
 
 class ResourceClassMap
 {
