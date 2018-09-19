@@ -26,4 +26,12 @@ public class TypeNameExtension {
     public String getFullClassName(final TypeName typeName) {
         return typeName.toString();
     }
+
+    @ExtensionMethod
+    public String getScalaClassName(final TypeName typeName) {
+        return typeName.toString()
+                .replace('<', '[')
+                .replace('>', ']')
+                .replace("java.util.List", "List");
+    }
 }

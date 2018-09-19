@@ -47,6 +47,7 @@ public class CodeGeneratorTest {
                 .packagePrefix("com.commercetools.importapi")
                 .outputFolder(outputPath)
                 .ramlFileLocation(ramlFileLocation)
+                .genLanguage("scala")
                 .customTypeMapping(customTypeMapping)
                 .build();
 

@@ -1,14 +1,14 @@
-import "description.stg"
-
 template(input) ::=
 <<
-package  <input.typeName.packageName>
+package <input.typeName.packageName>
 
-case class <input.name>(<properties(input)>)
+<if(input.properties.empty)>trait<else>case class<endif> <input.name>(
+<properties(input)>
+)
 >>
 
 properties(input) ::=
 <<
-<input.properties:{ property |<property.type.typeName.simpleClassName> <property.name>}; separator = "\n">
+<input.properties:{property |  <property.name>: <property.type.typeName.scalaClassName>}; separator = ",\n">
 >>
 

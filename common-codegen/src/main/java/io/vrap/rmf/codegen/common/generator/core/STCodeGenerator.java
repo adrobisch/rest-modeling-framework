@@ -107,7 +107,7 @@ public class STCodeGenerator {
             throw new IllegalArgumentException("unhandled object for templates " + object);
         }
 
-        String packagePath = className.reflectionName().replaceAll("\\.", "/") + ".java";
+        String packagePath = className.reflectionName().replaceAll("\\.", "/") + ".scala";
 
         final String output = generatorConfig.getOutputFolder().toAbsolutePath().toString();
         final Path outputPath = Paths.get(output, packagePath);
