@@ -29,4 +29,13 @@ class RamlModelBuilderTest extends Specification implements ResourceFixtures {
         then:
         ramlModelResult.validationResults.empty == true
     }
+
+    def "should resolve import api"() {
+        when:
+        URI uri = URI.createFileURI("/Users/mkoester/Development/commercetools-api-reference/update-actions.raml")
+        RamlModelResult<Api> ramlModelResult = modelBuilder.buildApi(uri)
+        then:
+        ramlModelResult.validationResults.empty == true
+    }
+
 }

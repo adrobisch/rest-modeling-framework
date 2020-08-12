@@ -241,15 +241,20 @@ class AnyType extends AnyTypeFacet {
 	/*
 	 * The type which this type extends.
 	 */
-	refers AnyType ^type opposite subTypes
-	
-	refers AnyType[] subTypes opposite ^type
+	refers AnyType ^type
 
     /*
      * Examples of instances of this type.
      * This can be used, for example, by documentation generators to generate sample values for an object of this type.
      */
     contains Example[] examples
+
+    /*
+     * This returns the list of sub types, which can be quite expensive to calculate
+     */
+	op AnyType[] getSubTypes() {
+       ModelHelper.getSubTypes(this)
+    }
 
     /*
      * If {@code inheritAnnotation} is true, this method traverses the inheritance chain to

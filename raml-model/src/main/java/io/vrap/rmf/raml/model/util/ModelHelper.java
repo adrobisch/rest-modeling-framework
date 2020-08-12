@@ -2,6 +2,7 @@ package io.vrap.rmf.raml.model.util;
 
 import com.damnhandy.uri.template.UriTemplate;
 import com.google.common.net.MediaType;
+import io.vrap.rmf.raml.model.modules.TypeContainer;
 import io.vrap.rmf.raml.model.resources.Resource;
 import io.vrap.rmf.raml.model.resources.ResourceContainer;
 import io.vrap.rmf.raml.model.resources.ResourcesFactory;
@@ -11,6 +12,9 @@ import io.vrap.rmf.raml.model.responses.BodyContainer;
 import io.vrap.rmf.raml.model.types.*;
 import org.eclipse.emf.common.util.ECollections;
 import org.eclipse.emf.common.util.EList;
+import org.eclipse.emf.ecore.EObject;
+import org.eclipse.emf.ecore.EReference;
+import org.eclipse.emf.ecore.util.EcoreUtil;
 
 import java.util.*;
 import java.util.function.Function;
@@ -217,5 +221,44 @@ public class ModelHelper {
             allPropertiesAsMap.putAll(filteredProperties);
         }
         return allPropertiesAsMap;
+    }
+
+    public static EList<AnyType> getSubTypes(final AnyType superType) {
+        return ECollections.asEList(new SubTypeCrossReferencer(superType).getSubTypes());
+    }
+
+    private static class SubTypeCrossReferencer extends EcoreUtil.UsageCrossReferencer {
+        private final AnyType superType;
+
+        protected SubTypeCrossReferencer(final AnyType superType) {
+            super(getScope(superType));
+            this.superType = superType;
+        }
+
+        @Override
+        protected boolean crossReference(final EObject eObject, final EReference eReference, final EObject crossReferencedEObject) {
+            return crossReferencedEObject == superType && eReference == TypesPackage.eINSTANCE.getAnyType_Type();
+        }
+
+        @Override
+        protected boolean containment(final EObject eObject) {
+            return eObject instanceof TypeContainer || eObject instanceof InlineTypeContainer || eObject instanceof AnyType;
+        }
+
+        public List<AnyType> getSubTypes() {
+            final List<AnyType> subTypes = findUsage(superType).stream()
+                    .map(setting -> ((AnyType) setting.getEObject()))
+                    .collect(Collectors.toList());
+            return subTypes;
+        }
+
+        /**
+         * Returns the most encompassing scope for the given argument.
+         */
+        private static Collection<?> getScope(final EObject eObject) {
+            return eObject.eResource() == null ? Collections.singletonList(eObject) :
+                    eObject.eResource().getResourceSet() == null ? Collections.singletonList(eObject.eResource())
+                            : Collections.singletonList(eObject.eResource().getResourceSet());
+        }
     }
 }
